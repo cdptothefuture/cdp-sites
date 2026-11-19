@@ -1,0 +1,1758 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BIM 2D/3D — Gare de Liège-Guillemins (Eurocodes & ISO 19650)</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <style>
+    :root {
+      --bg: #0b0f17;
+      --panel: #111827;
+      --panel2: #161f32;
+      --border: #24314a;
+      --text: #e5edf8;
+      --muted: #8fa3bf;
+      --accent: #38bdf8;
+      --accent2: #22c55e;
+      --warn: #f59e0b;
+      --danger: #ef4444;
+      --purple: #a78bfa;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+      overflow: hidden;
+    }
+    .app {
+      display: grid;
+      grid-template-rows: 54px 1fr 28px;
+      height: 100vh;
+      width: 100vw;
+    }
+    header {
+      background: linear-gradient(90deg, #0e1524, #121c30);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 14px;
+      gap: 10px;
+      z-index: 20;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+    .badge-bim {
+      background: linear-gradient(135deg, #0284c7, #2563eb);
+      color: #fff;
+      font-weight: 800;
+      font-size: 11px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      letter-spacing: 0.6px;
+      white-space: nowrap;
+    }
+    .brand h1 {
+      font-size: 14px;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .brand span {
+      font-size: 11px;
+      color: var(--muted);
+      display: block;
+      font-weight: 400;
+    }
+    .view-switch {
+      display: flex;
+      background: #0a101c;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 3px;
+      gap: 3px;
+    }
+    .view-switch button {
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: 0.15s;
+      white-space: nowrap;
+    }
+    .view-switch button.active {
+      background: #1e293b;
+      color: var(--accent);
+      box-shadow: inset 0 0 0 1px rgba(56,189,248,0.35);
+    }
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .pill {
+      font-size: 11px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: #0d1525;
+      color: var(--accent2);
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .pill.warn { color: var(--warn); border-color: rgba(245,158,11,0.4); }
+    .pill.danger { color: var(--danger); border-color: rgba(239,68,68,0.4); }
+    .mobile-toggle {
+      display: none;
+      border: 1px solid var(--border);
+      background: #162033;
+      color: var(--text);
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: 270px 1fr 330px;
+      min-height: 0;
+      position: relative;
+    }
+    aside {
+      background: var(--panel);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    aside.right {
+      border-right: none;
+      border-left: 1px solid var(--border);
+    }
+    .card {
+      background: var(--panel2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 11px;
+    }
+    .card h2 {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+      color: var(--muted);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .tree-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 8px;
+      border-radius: 7px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: 0.12s;
+      border: 1px solid transparent;
+      margin-bottom: 3px;
+    }
+    .tree-item:hover { background: rgba(56,189,248,0.08); }
+    .tree-item.selected {
+      background: rgba(56,189,248,0.15);
+      border-color: rgba(56,189,248,0.4);
+      color: #fff;
+    }
+    .tree-left {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      min-width: 0;
+    }
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+    .ifc-tag {
+      font-size: 10px;
+      color: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      padding: 4px 0;
+    }
+    .toggle-row label {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      cursor: pointer;
+      color: #d6e2f3;
+    }
+    input[type="checkbox"] {
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .viewport-wrap {
+      position: relative;
+      background: radial-gradient(circle at 50% 35%, #16233b 0%, #0b101a 75%);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .viewport-stage {
+      position: relative;
+      flex: 1;
+      display: flex;
+      min-height: 0;
+    }
+    .pane {
+      position: relative;
+      flex: 1;
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .pane.hidden { display: none; }
+    .pane + .pane:not(.hidden) {
+      border-left: 1px solid var(--border);
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    .hud-top {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      right: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      pointer-events: none;
+      gap: 8px;
+      z-index: 5;
+    }
+    .hud-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      pointer-events: auto;
+    }
+    .hud-btn {
+      background: rgba(12, 19, 33, 0.85);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 6px 9px;
+      border-radius: 7px;
+      cursor: pointer;
+      transition: 0.15s;
+    }
+    .hud-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .hud-btn.active {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    .hud-legend {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      background: rgba(12, 19, 33, 0.86);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 7px 10px;
+      font-size: 11px;
+      color: var(--muted);
+      pointer-events: none;
+      z-index: 5;
+    }
+    .hud-legend strong { color: var(--text); }
+    .heatmap-bar {
+      display: none;
+      align-items: center;
+      gap: 6px;
+      margin-top: 5px;
+    }
+    .heatmap-bar.visible { display: flex; }
+    .heatmap-grad {
+      width: 110px;
+      height: 8px;
+      border-radius: 4px;
+      background: linear-gradient(90deg, #22c55e, #eab308, #f97316, #ef4444);
+    }
+
+    .slider-block {
+      margin-bottom: 9px;
+    }
+    .slider-head {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11.5px;
+      margin-bottom: 3px;
+    }
+    .slider-head strong {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      color: var(--accent);
+    }
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .ec-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 7px 8px;
+      border-radius: 7px;
+      background: #0e1626;
+      border: 1px solid #1e2b42;
+      margin-bottom: 6px;
+    }
+    .ec-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11.5px;
+      gap: 6px;
+    }
+    .ec-code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-weight: 700;
+      color: #cbd5e1;
+    }
+    .ec-status {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+    .ok { background: rgba(34,197,94,0.16); color: #4ade80; border: 1px solid rgba(34,197,94,0.35); }
+    .warn-b { background: rgba(245,158,11,0.16); color: #fbbf24; border: 1px solid rgba(245,158,11,0.35); }
+    .fail { background: rgba(239,68,68,0.18); color: #f87171; border: 1px solid rgba(239,68,68,0.4); }
+    .bar-bg {
+      height: 5px;
+      border-radius: 99px;
+      background: #1e293b;
+      overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%;
+      border-radius: 99px;
+      transition: width 0.2s, background 0.2s;
+    }
+    .ec-detail {
+      font-size: 10.5px;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .prop-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+    .prop-box {
+      background: #0e1626;
+      border: 1px solid #1e2b42;
+      border-radius: 6px;
+      padding: 6px 7px;
+    }
+    .prop-box .k { font-size: 10px; color: var(--muted); }
+    .prop-box .v {
+      font-size: 12px;
+      font-weight: 700;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      margin-top: 2px;
+      color: #f1f5f9;
+    }
+
+    .salary-box {
+      background: linear-gradient(135deg, rgba(34,197,94,0.12), rgba(56,189,248,0.1));
+      border: 1px solid rgba(56,189,248,0.3);
+      border-radius: 9px;
+      padding: 9px 10px;
+      font-size: 11.5px;
+      line-height: 1.45;
+    }
+    .salary-box strong { color: #fff; }
+
+    footer {
+      background: #090d14;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      font-size: 11px;
+      color: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    @media (max-width: 1060px) {
+      main { grid-template-columns: 1fr; }
+      aside.left, aside.right {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 310px;
+        max-width: 90vw;
+        z-index: 15;
+        transform: translateX(-105%);
+        transition: transform 0.2s ease;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+      }
+      aside.right {
+        right: 0;
+        transform: translateX(105%);
+      }
+      aside.left.open, aside.right.open { transform: translateX(0); }
+      .mobile-toggle { display: inline-block; }
+      .brand span { display: none; }
+      .pill { display: none; }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">
+      <div class="badge-bim">BIM LOD 400</div>
+      <div>
+        <h1>Gare de Liège-Guillemins — Plan 2D & Maquette 3D</h1>
+        <span>S. Calatrava · 160 m × 145 m × 35 m · ISO 19650-2 · NBN EN 1990–1998</span>
+      </div>
+    </div>
+
+    <div class="view-switch">
+      <button id="btnSplit" class="active">Split 2D + 3D</button>
+      <button id="btn3D">3D BIM</button>
+      <button id="btn2D">Plan 2D CAD</button>
+    </div>
+
+    <div class="header-actions">
+      <div id="globalStatus" class="pill">EUROCODES : CONFORME</div>
+      <button class="mobile-toggle" id="toggleLeft">IFC</button>
+      <button class="mobile-toggle" id="toggleRight">Eurocodes</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- LEFT PANEL: IFC TREE & LAYERS -->
+    <aside class="left" id="panelLeft">
+      <div class="card">
+        <h2>Arborescence IFC 4.3 <span>9 familles</span></h2>
+        <div id="ifcTree"></div>
+      </div>
+
+      <div class="card">
+        <h2>Calques BIM & CAD</h2>
+        <div class="toggle-row"><label><input type="checkbox" id="layArches" checked /> 39 Arcs métalliques (S355)</label></div>
+        <div class="toggle-row"><label><input type="checkbox" id="layGlass" checked /> Verrière feuilletée (24 000 m²)</label></div>
+        <div class="toggle-row"><label><input type="checkbox" id="layConcrete" checked /> Béton architectural blanc (C45/55)</label></div>
+        <div class="toggle-row"><label><input type="checkbox" id="layPlatforms" checked /> 5 Quais & 9 Voies ferrées</label></div>
+        <div class="toggle-row"><label><input type="checkbox" id="layGrid" checked /> Trame axes A–I / 1–19 & cotes</label></div>
+        <div class="toggle-row"><label><input type="checkbox" id="layLoads" checked /> Vecteurs charges (Vent / Neige)</label></div>
+      </div>
+
+      <div class="card">
+        <h2>Propriétés Élément Sélectionné</h2>
+        <div id="selectedProps" class="prop-grid"></div>
+      </div>
+    </aside>
+
+    <!-- CENTER VIEWPORT -->
+    <section class="viewport-wrap">
+      <div class="viewport-stage">
+        <!-- 2D CAD PANE -->
+        <div class="pane" id="pane2D">
+          <div class="hud-top">
+            <div class="hud-group">
+              <button class="hud-btn active" data-plan="top">Vue en Plan (Niv. Quais +0.00)</button>
+              <button class="hud-btn" data-plan="section">Coupe Transversale A–A</button>
+              <button class="hud-btn" data-plan="elev">Élévation Longitudinale</button>
+            </div>
+            <div class="hud-group">
+              <button class="hud-btn" id="btn2DReset">Recadrer</button>
+            </div>
+          </div>
+          <canvas id="canvas2D"></canvas>
+          <div class="hud-legend">
+            <strong>PLAN 2D BIM / CAD</strong> — Molette : zoom · Clic glissé : panoramique · Échelle dynamique (m) · Système Lambert 72 (Liège)
+          </div>
+        </div>
+
+        <!-- 3D BIM PANE -->
+        <div class="pane" id="pane3D">
+          <div class="hud-top">
+            <div class="hud-group">
+              <button class="hud-btn active" data-mode="arch">Rendu Archi</button>
+              <button class="hud-btn" data-mode="ifc">Couleurs IFC</button>
+              <button class="hud-btn" data-mode="stress">Heatmap ELU</button>
+              <button class="hud-btn" data-mode="wire">Fil de fer</button>
+            </div>
+            <div class="hud-group">
+              <button class="hud-btn" id="btn3DReset">Vue Iso</button>
+              <button class="hud-btn" id="btn3DAuto">Auto-orbite</button>
+            </div>
+          </div>
+          <div id="threeContainer" style="width:100%;height:100%;"></div>
+          <div class="hud-legend">
+            <strong>MAQUETTE 3D IFC</strong> — Clic gauche : orbite · Droit/Shift : pan · Molette : zoom
+            <div class="heatmap-bar" id="heatmapLegend">
+              <span>0%</span>
+              <div class="heatmap-grad"></div>
+              <span>100% ELU</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT PANEL: EUROCODES & GC -->
+    <aside class="right" id="panelRight">
+      <div class="card">
+        <h2>Hypothèses de Calcul (Liège, BE)</h2>
+        <div class="slider-block">
+          <div class="slider-head"><span>Vent v<sub>b,0</sub> (EN 1991-1-4 NBN)</span><strong id="valWind">24 m/s</strong></div>
+          <input type="range" id="slWind" min="18" max="42" step="1" value="24" />
+        </div>
+        <div class="slider-block">
+          <div class="slider-head"><span>Neige s<sub>k</sub> (EN 1991-1-3)</span><strong id="valSnow">0.50 kN/m²</strong></div>
+          <input type="range" id="slSnow" min="0.2" max="2.5" step="0.05" value="0.50" />
+        </div>
+        <div class="slider-block">
+          <div class="slider-head"><span>Exploitation quais Q<sub>k</sub> (Cat. C3)</span><strong id="valLive">5.0 kN/m²</strong></div>
+          <input type="range" id="slLive" min="2.0" max="9.0" step="0.5" value="5.0" />
+        </div>
+        <div class="slider-block">
+          <div class="slider-head"><span>Séisme a<sub>gR</sub> (EN 1998 Liège Z3)</span><strong id="valSeis">0.80 m/s²</strong></div>
+          <input type="range" id="slSeis" min="0.4" max="2.2" step="0.1" value="0.8" />
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Vérifications Eurocodes (ELU / ELS)</h2>
+        <div id="eurocodeList"></div>
+      </div>
+
+      <div class="card">
+        <h2>Normes & Référentiel GC</h2>
+        <div style="font-size:11px; color:var(--muted); line-height:1.55;">
+          • <strong style="color:#e2e8f0">NBN EN 1990</strong> : 1.35G + 1.5Q<sub>1</sub> + 1.5ψ<sub>0</sub>Q<sub>i</sub><br/>
+          • <strong style="color:#e2e8f0">NBN EN 1992-1-1</strong> : Béton blanc C45/55, XC4/XD1, enrobage c<sub>nom</sub> = 45 mm<br/>
+          • <strong style="color:#e2e8f0">NBN EN 1993-1-1</strong> : Arcs caissons acier S355J2, classe 1, γ<sub>M0</sub>=1.0, γ<sub>M1</sub>=1.1<br/>
+          • <strong style="color:#e2e8f0">NBN EN 1997-1</strong> : Pieux forés tubés Ø1200 dans schistes houillers<br/>
+          • <strong style="color:#e2e8f0">ISO 19650-2 / IFC 4.3</strong> : CDE, LOD 400, Clash-free 0.0 mm
+        </div>
+      </div>
+
+      <div class="salary-box" id="salaryVerdict">
+        <strong>Justification Salaire Ingé GC :</strong><br/>
+        Calculs ELU/ELS vérifiés, note de calcul 412 pages signée. Salaire justifié à 100 % (sauf si l'archi change la portée vendredi à 17h30).
+      </div>
+    </aside>
+  </main>
+
+  <footer>
+    <span id="footCoords">X: 0.00 m | Y: 0.00 m | Z: +0.00 m (TAW)</span>
+    <span>Gare de Liège-Guillemins · BIM Viewer · 39 Arcs · 9 Voies · 5 Quais</span>
+  </footer>
+</div>
+
+<script>
+// ============================================================
+// DATA MODEL: IFC ELEMENTS & STRUCTURAL PARAMETERS
+// ============================================================
+const IFC_ELEMENTS = [
+  {
+    id: 'arches',
+    name: '39 Arcs Principaux (Voûte)',
+    ifc: 'IfcBeam / IfcMember',
+    color: '#e2e8f0',
+    ifcColor: '#38bdf8',
+    props: {
+      'Classe IFC': 'IfcMember (ARCH)',
+      'Matériau': 'Acier S355J2+N',
+      'Portée max': '145.0 m',
+      'Hauteur clé': '35.0 m',
+      'Entraxe': '4.10 m (39 arcs)',
+      'Masse acier': '10 000 tonnes',
+      'Norme': 'NBN EN 1993-1-1',
+      'Flèche ELS': 'L/380 (< L/300)'
+    }
+  },
+  {
+    id: 'glass',
+    name: 'Verrière & Brise-Soleil',
+    ifc: 'IfcCurtainWall',
+    color: '#7dd3fc',
+    ifcColor: '#06b6d4',
+    props: {
+      'Classe IFC': 'IfcCurtainWall',
+      'Surface': '24 000 m²',
+      'Vitrage': 'Feuilleté 10.10.2',
+      'Fixation': 'Pannes + araignées',
+      'Charge vent': 'EN 1991-1-4 c_pe',
+      'Charge neige': 'EN 1991-1-3 μ_1=0.8',
+      'Norme': 'NBN S 23-002',
+      'Sécurité': 'Verre trempé HST'
+    }
+  },
+  {
+    id: 'concrete',
+    name: 'Culées & Portiques Béton Blanc',
+    ifc: 'IfcColumn / IfcWall',
+    color: '#f8fafc',
+    ifcColor: '#a78bfa',
+    props: {
+      'Classe IFC': 'IfcColumn',
+      'Béton': 'C45/55 Blanc (CEM I)',
+      'Exposition': 'XC4 / XD1 / XF1',
+      'Enrobage': 'c_nom = 45 mm',
+      'Volume': '70 000 m³',
+      'Armatures': 'B500B (145 kg/m³)',
+      'Norme': 'NBN EN 1992-1-1',
+      'Fissuration': 'w_k = 0.21 mm ≤ 0.30'
+    }
+  },
+  {
+    id: 'platforms',
+    name: '5 Quais Voyageurs (450 m)',
+    ifc: 'IfcSlab',
+    color: '#94a3b8',
+    ifcColor: '#22c55e',
+    props: {
+      'Classe IFC': 'IfcSlab',
+      'Dimensions': 'L=300–450 m × 8.5 m',
+      'Hauteur quai': '+0.76 m / rail',
+      'Surcharge Qk': '5.0 kN/m² (Cat. C3)',
+      'Dalle': 'Précontraint e=320 mm',
+      'PMR': 'NBN / STI-PMR OK',
+      'Norme': 'EN 1991-1-1 / 1992',
+      'Joint dilat.': 'Tous les 40 m'
+    }
+  },
+  {
+    id: 'tracks',
+    name: '9 Voies Ferrées (TGV / IC)',
+    ifc: 'IfcTrackElement',
+    color: '#f59e0b',
+    ifcColor: '#f59e0b',
+    props: {
+      'Classe IFC': 'IfcRail (IFC 4.3)',
+      'Écartement': '1435 mm (UIC)',
+      'Profil rail': 'UIC 60 (60E1)',
+      'Charges': 'LM71 + SW/2 (α=1.21)',
+      'Caténaire': '3 kV DC (Infrabel)',
+      'Vitesse': '100 km/h en traversée',
+      'Norme': 'EN 1991-2 (Trafic)',
+      'Voies': '9 voies dont 4 LGV'
+    }
+  },
+  {
+    id: 'foundations',
+    name: 'Fondations Profondes (Pieux)',
+    ifc: 'IfcPile',
+    color: '#64748b',
+    ifcColor: '#f43f5e',
+    props: {
+      'Classe IFC': 'IfcPile',
+      'Type': 'Pieux forés Ø1200 mm',
+      'Ancrage': '-16.5 m (Schiste)',
+      'Nappe': 'Meuse (-4.2 m TAW)',
+      'Portance Rd': '11.4 MN / pieu',
+      'Tassement': 's = 8.4 mm ≤ 15 mm',
+      'Norme': 'NBN EN 1997-1 (DA1)',
+      'Zone sism.': 'Liège Zone 3 (a_gR 0.8)'
+    }
+  }
+];
+
+let selectedId = 'arches';
+let currentView = 'split'; // split | 3d | 2d
+let current2DMode = 'top'; // top | section | elev
+let current3DMode = 'arch'; // arch | ifc | stress | wire
+let autoRotate = false;
+
+const layers = {
+  arches: true,
+  glass: true,
+  concrete: true,
+  platforms: true,
+  grid: true,
+  loads: true
+};
+
+const params = {
+  wind: 24,   // m/s
+  snow: 0.50, // kN/m2
+  live: 5.0,  // kN/m2
+  seis: 0.8   // m/s2
+};
+
+let calcState = {
+  steelRatio: 0.72,
+  concRatio: 0.64,
+  deflectRatio: 0.78,
+  foundRatio: 0.69,
+  seisRatio: 0.58,
+  globalOk: true
+};
+
+// ============================================================
+// UI: IFC TREE & PROPERTIES
+// ============================================================
+function renderIfcTree() {
+  const wrap = document.getElementById('ifcTree');
+  wrap.innerHTML = '';
+  IFC_ELEMENTS.forEach(el => {
+    const div = document.createElement('div');
+    div.className = 'tree-item' + (el.id === selectedId ? ' selected' : '');
+    div.innerHTML = `
+      <div class="tree-left">
+        <span class="dot" style="background:${el.ifcColor}"></span>
+        <span>${el.name}</span>
+      </div>
+      <span class="ifc-tag">${el.ifc.split(' ')[0]}</span>
+    `;
+    div.onclick = () => {
+      selectedId = el.id;
+      renderIfcTree();
+      renderSelectedProps();
+      draw2D();
+      update3DHighlight();
+    };
+    wrap.appendChild(div);
+  });
+}
+
+function renderSelectedProps() {
+  const el = IFC_ELEMENTS.find(x => x.id === selectedId) || IFC_ELEMENTS[0];
+  const grid = document.getElementById('selectedProps');
+  grid.innerHTML = Object.entries(el.props).map(([k, v]) => `
+    <div class="prop-box">
+      <div class="k">${k}</div>
+      <div class="v">${v}</div>
+    </div>
+  `).join('');
+}
+
+// ============================================================
+// EUROCODE LIVE CALCULATIONS
+// ============================================================
+function recomputeEurocodes() {
+  // Dynamic pressure q_b = 0.5 * rho * v_b^2 (rho = 1.25 kg/m3)
+  const qb = 0.5 * 1.25 * params.wind * params.wind / 1000; // kN/m2
+  const qp = qb * 2.65; // exposure factor ce(z=35m) ~ 2.65
+  const snowLoad = 0.8 * params.snow; // mu_1 * s_k
+
+  // Arch ELU combination: 1.35 G + 1.5 Q_w + 1.5*0.5*S
+  const G_arch = 1.85; // kN/m2 equivalent
+  const q_elu = 1.35 * G_arch + 1.5 * (qp * 0.95) + 1.5 * 0.5 * snowLoad;
+  const M_ed = q_elu * 4.10 * (145 * 145) / 34.5; // arched reduction factor
+  const M_rd = 18500; // kN.m resistance of box arch S355
+  const steelRatio = Math.min(1.45, M_ed / M_rd);
+
+  // SLS deflection (L/300 = 483 mm)
+  const q_els = G_arch + qp * 0.7 + snowLoad;
+  const delta_mm = q_els * 92; // calibrated around 350mm at nominal
+  const delta_lim = 483;
+  const deflectRatio = Math.min(1.45, delta_mm / delta_lim);
+
+  // Concrete piers & platform slabs (EN 1992-1-1)
+  const N_ed_slab = 1.35 * 8.0 + 1.5 * params.live;
+  const concRatio = Math.min(1.45, N_ed_slab / 27.5);
+
+  // Foundations (EN 1997-1)
+  const foundRatio = Math.min(1.45, (0.45 * steelRatio + 0.55 * concRatio) * 0.96);
+
+  // Seismic (EN 1998-1, Liège Zone 3, Soil class B S=1.2)
+  const seisRatio = Math.min(1.45, (params.seis * 1.2 * 0.62) / 0.85);
+
+  calcState = {
+    steelRatio,
+    concRatio,
+    deflectRatio,
+    foundRatio,
+    seisRatio,
+    qp,
+    M_ed,
+    delta_mm,
+    delta_lim,
+    globalOk: Math.max(steelRatio, concRatio, deflectRatio, foundRatio, seisRatio) <= 1.0
+  };
+
+  const checks = [
+    {
+      code: 'EN 1993-1-1 (Arcs S355)',
+      ratio: steelRatio,
+      left: `M_Ed = ${Math.round(M_ed)} kN·m`,
+      right: `q_p(35m) = ${qp.toFixed(2)} kN/m²`
+    },
+    {
+      code: 'EN 1990 ELS (Flèche voûte)',
+      ratio: deflectRatio,
+      left: `δ = ${Math.round(delta_mm)} mm`,
+      right: `Limite L/300 = ${delta_lim} mm`
+    },
+    {
+      code: 'EN 1992-1-1 (Béton C45/55)',
+      ratio: concRatio,
+      left: `σ_c / f_cd = ${(concRatio * 100).toFixed(0)}%`,
+      right: `Q_k = ${params.live.toFixed(1)} kN/m²`
+    },
+    {
+      code: 'EN 1997-1 (Pieux Ø1200)',
+      ratio: foundRatio,
+      left: `E_d / R_d = ${(foundRatio * 100).toFixed(0)}%`,
+      right: `DA1-C2 Schiste`
+    },
+    {
+      code: 'EN 1998-1 (Séisme Liège Z3)',
+      ratio: seisRatio,
+      left: `a_gR = ${params.seis.toFixed(1)} m/s²`,
+      right: `Sol B · q = 3.0`
+    }
+  ];
+
+  const list = document.getElementById('eurocodeList');
+  list.innerHTML = checks.map(c => {
+    const pct = Math.round(c.ratio * 100);
+    let cls = 'ok', txt = `OK ${pct}%`, col = '#22c55e';
+    if (c.ratio > 1.0) { cls = 'fail'; txt = `NON CONF. ${pct}%`; col = '#ef4444'; }
+    else if (c.ratio > 0.85) { cls = 'warn-b'; txt = `LIMITE ${pct}%`; col = '#f59e0b'; }
+    return `
+      <div class="ec-row">
+        <div class="ec-top">
+          <span class="ec-code">${c.code}</span>
+          <span class="ec-status ${cls}">${txt}</span>
+        </div>
+        <div class="bar-bg"><div class="bar-fill" style="width:${Math.min(100, pct)}%;background:${col}"></div></div>
+        <div class="ec-detail"><span>${c.left}</span><span>${c.right}</span></div>
+      </div>
+    `;
+  }).join('');
+
+  const badge = document.getElementById('globalStatus');
+  const sal = document.getElementById('salaryVerdict');
+  const maxR = Math.max(steelRatio, concRatio, deflectRatio, foundRatio, seisRatio);
+  if (maxR > 1.0) {
+    badge.className = 'pill danger';
+    badge.textContent = `ALERTE ELU (${Math.round(maxR*100)}%)`;
+    sal.innerHTML = `<strong>Alerte Note de Calcul :</strong><br/>Taux de travail à <strong>${Math.round(maxR*100)}%</strong> (>100%). Renforcer les caissons S355 ou passer en S460 avant que le bureau de contrôle SECO bloque le chantier.`;
+  } else if (maxR > 0.85) {
+    badge.className = 'pill warn';
+    badge.textContent = `EUROCODES : LIMITE (${Math.round(maxR*100)}%)`;
+    sal.innerHTML = `<strong>Justification Salaire Ingé GC :</strong><br/>Optimisé au ras de l'Eurocode (<strong>${Math.round(maxR*100)}%</strong>). Ton chef de projet est content sur le tonnage d'acier, toi tu dors un peu moins bien.`;
+  } else {
+    badge.className = 'pill';
+    badge.textContent = `EUROCODES : CONFORME (${Math.round(maxR*100)}%)`;
+    sal.innerHTML = `<strong>Justification Salaire Ingé GC :</strong><br/>ELU/ELS & NBN vérifiés (max <strong>${Math.round(maxR*100)}%</strong>), note de calcul 412 pages signée. Salaire justifié à 100 % (sauf si l'archi change la portée vendredi à 17h30).`;
+  }
+
+  update3DMaterials();
+  draw2D();
+}
+
+// ============================================================
+// 2D CAD / BIM CANVAS ENGINE
+// ============================================================
+const canvas2D = document.getElementById('canvas2D');
+const ctx = canvas2D.getContext('2d');
+let cam2D = { x: 0, y: 0, zoom: 2.7 };
+let drag2D = { active: false, sx: 0, sy: 0, cx: 0, cy: 0 };
+
+function resize2D() {
+  const rect = canvas2D.parentElement.getBoundingClientRect();
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas2D.width = Math.max(1, Math.floor(rect.width * dpr));
+  canvas2D.height = Math.max(1, Math.floor(rect.height * dpr));
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  draw2D();
+}
+
+function drawDimLine(x1, y1, x2, y2, label, offset = 16) {
+  const dx = x2 - x1, dy = y2 - y1;
+  const len = Math.hypot(dx, dy) || 1;
+  const nx = -dy / len * offset;
+  const ny = dx / len * offset;
+  ctx.save();
+  ctx.strokeStyle = '#38bdf8';
+  ctx.fillStyle = '#7dd3fc';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(x1, y1); ctx.lineTo(x1 + nx, y1 + ny);
+  ctx.moveTo(x2, y2); ctx.lineTo(x2 + nx, y2 + ny);
+  ctx.moveTo(x1 + nx * 0.85, y1 + ny * 0.85);
+  ctx.lineTo(x2 + nx * 0.85, y2 + ny * 0.85);
+  ctx.stroke();
+
+  const mx = (x1 + x2) / 2 + nx * 0.85;
+  const my = (y1 + y2) / 2 + ny * 0.85;
+  ctx.font = '600 10px ui-monospace, monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const tw = ctx.measureText(label).width + 8;
+  ctx.fillStyle = '#0b1220';
+  ctx.fillRect(mx - tw / 2, my - 7, tw, 14);
+  ctx.fillStyle = '#7dd3fc';
+  ctx.fillText(label, mx, my);
+  ctx.restore();
+}
+
+function draw2D() {
+  const w = canvas2D.clientWidth;
+  const h = canvas2D.clientHeight;
+  if (w <= 0 || h <= 0) return;
+
+  ctx.clearRect(0, 0, w, h);
+
+  // CAD background grid
+  ctx.fillStyle = '#0a111e';
+  ctx.fillRect(0, 0, w, h);
+
+  const cx = w / 2 + cam2D.x;
+  const cy = h / 2 + cam2D.y;
+  const s = cam2D.zoom; // px per meter
+
+  // Fine grid (10m)
+  const step = 10 * s;
+  if (step > 8) {
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.06)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = cx % step; x < w; x += step) { ctx.moveTo(x, 0); ctx.lineTo(x, h); }
+    for (let y = cy % step; y < h; y += step) { ctx.moveTo(0, y); ctx.lineTo(w, y); }
+    ctx.stroke();
+  }
+
+  ctx.save();
+  ctx.translate(cx, cy);
+
+  if (current2DMode === 'top') {
+    draw2DTopView(s);
+  } else if (current2DMode === 'section') {
+    draw2DSectionView(s);
+  } else {
+    draw2DElevationView(s);
+  }
+
+  ctx.restore();
+
+  // North arrow & Cartouche BIM
+  ctx.save();
+  ctx.fillStyle = 'rgba(13, 21, 37, 0.9)';
+  ctx.strokeStyle = '#24314a';
+  ctx.lineWidth = 1;
+  const cw = 210, ch = 54;
+  ctx.fillRect(w - cw - 12, h - ch - 12, cw, ch);
+  ctx.strokeRect(w - cw - 12, h - ch - 12, cw, ch);
+  ctx.fillStyle = '#e2e8f0';
+  ctx.font = '700 10.5px ui-monospace, monospace';
+  ctx.fillText('LIÈGE-GUILLEMINS · BIM 2D', w - cw - 3, h - ch + 5);
+  ctx.fillStyle = '#8fa3bf';
+  ctx.font = '10px ui-monospace, monospace';
+  const modeLabel = current2DMode === 'top' ? 'PLAN MASSE +0.00' : current2DMode === 'section' ? 'COUPE TRANSV. A-A' : 'ÉLÉVATION LONGIT.';
+  ctx.fillText(`${modeLabel} · 1:${Math.round(400 / (s / 2.5))}`, w - cw - 3, h - ch + 21);
+  ctx.fillText(`NBN EN 1990–1998 · LOD 400`, w - cw - 3, h - ch + 36);
+  ctx.restore();
+}
+
+function draw2DTopView(s) {
+  // 160m length (X: -80..80), 145m total span (Y: -72.5..72.5)
+  const L = 160, W = 145;
+
+  // Gridlines & Axes
+  if (layers.grid) {
+    ctx.strokeStyle = 'rgba(148, 163, 184, 0.22)';
+    ctx.setLineDash([4, 4]);
+    ctx.lineWidth = 1;
+    const cols = ['A','B','C','D','E','F','G','H','I'];
+    cols.forEach((lbl, i) => {
+      const y = (-64 + i * 16) * s;
+      ctx.beginPath(); ctx.moveTo(-115 * s, y); ctx.lineTo(115 * s, y); ctx.stroke();
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '700 10px ui-monospace, monospace';
+      ctx.fillText(lbl, -122 * s, y + 3);
+    });
+    for (let i = 0; i < 9; i++) {
+      const x = (-80 + i * 20) * s;
+      ctx.beginPath(); ctx.moveTo(x, -82 * s); ctx.lineTo(x, 82 * s); ctx.stroke();
+      ctx.fillText(String(i + 1), x - 3, -86 * s);
+    }
+    ctx.setLineDash([]);
+  }
+
+  // Platforms (5) & Tracks (9)
+  if (layers.platforms) {
+    const platYs = [-42, -21, 0, 21, 42];
+    platYs.forEach((py, idx) => {
+      ctx.fillStyle = selectedId === 'platforms' ? 'rgba(34,197,94,0.35)' : 'rgba(100,116,139,0.28)';
+      ctx.strokeStyle = selectedId === 'platforms' ? '#4ade80' : '#64748b';
+      ctx.lineWidth = 1.2;
+      ctx.fillRect(-110 * s, (py - 4.2) * s, 220 * s, 8.4 * s);
+      ctx.strokeRect(-110 * s, (py - 4.2) * s, 220 * s, 8.4 * s);
+      ctx.fillStyle = '#cbd5e1';
+      ctx.font = '600 9px ui-monospace, monospace';
+      ctx.fillText(`QUAI ${idx + 1}`, -106 * s, py * s + 3);
+    });
+
+    // 9 tracks
+    const trackYs = [-52, -33.5, -29.5, -12.5, -8.5, 8.5, 12.5, 29.5, 33.5];
+    ctx.strokeStyle = selectedId === 'tracks' ? '#fbbf24' : 'rgba(245,158,11,0.65)';
+    ctx.lineWidth = selectedId === 'tracks' ? 2.2 : 1.2;
+    trackYs.forEach((ty, i) => {
+      ctx.beginPath();
+      ctx.moveTo(-125 * s, ty * s);
+      ctx.lineTo(125 * s, ty * s);
+      ctx.stroke();
+    });
+  }
+
+  // Concrete abutments North & South
+  if (layers.concrete) {
+    ctx.fillStyle = selectedId === 'concrete' ? 'rgba(167,139,250,0.45)' : 'rgba(226,232,240,0.25)';
+    ctx.strokeStyle = selectedId === 'concrete' ? '#c4b5fd' : '#e2e8f0';
+    ctx.lineWidth = 1.6;
+    ctx.fillRect(-82 * s, -72 * s, 164 * s, 11 * s);
+    ctx.strokeRect(-82 * s, -72 * s, 164 * s, 11 * s);
+    ctx.fillRect(-82 * s, 61 * s, 164 * s, 11 * s);
+    ctx.strokeRect(-82 * s, 61 * s, 164 * s, 11 * s);
+  }
+
+  // Glass canopy footprint (elliptical sculpted edges)
+  if (layers.glass) {
+    ctx.beginPath();
+    for (let i = 0; i <= 40; i++) {
+      const t = (i / 40) * 2 - 1; // -1..1
+      const x = t * 80;
+      const halfW = 72.5 - 12 * (t * t);
+      if (i === 0) ctx.moveTo(x * s, -halfW * s);
+      else ctx.lineTo(x * s, -halfW * s);
+    }
+    for (let i = 40; i >= 0; i--) {
+      const t = (i / 40) * 2 - 1;
+      const x = t * 80;
+      const halfW = 72.5 - 12 * (t * t);
+      ctx.lineTo(x * s, halfW * s);
+    }
+    ctx.closePath();
+    ctx.fillStyle = selectedId === 'glass' ? 'rgba(6,182,212,0.28)' : 'rgba(56,189,248,0.10)';
+    ctx.fill();
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+  }
+
+  // 39 Arches
+  if (layers.arches) {
+    for (let i = 0; i < 39; i++) {
+      const t = (i / 38) * 2 - 1;
+      const x = t * 78;
+      const halfW = 72 - 12 * (t * t);
+      ctx.strokeStyle = selectedId === 'arches' ? '#38bdf8' : 'rgba(241,245,249,0.75)';
+      ctx.lineWidth = (i % 5 === 0) ? 1.8 : 0.9;
+      ctx.beginPath();
+      ctx.moveTo(x * s, -halfW * s);
+      ctx.lineTo(x * s, halfW * s);
+      ctx.stroke();
+    }
+  }
+
+  // Cut line A-A
+  ctx.save();
+  ctx.strokeStyle = '#f43f5e';
+  ctx.setLineDash([8, 4, 2, 4]);
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(0, -84 * s);
+  ctx.lineTo(0, 84 * s);
+  ctx.stroke();
+  ctx.fillStyle = '#f43f5e';
+  ctx.font = '700 11px ui-monospace, monospace';
+  ctx.fillText('A', 4, -76 * s);
+  ctx.fillText('A', 4, 82 * s);
+  ctx.restore();
+
+  // Dimensions
+  if (layers.grid) {
+    drawDimLine(-80 * s, -74 * s, 80 * s, -74 * s, '160.00 m (39 arcs @ 4.10 m)', 22);
+    drawDimLine(84 * s, -72.5 * s, 84 * s, 72.5 * s, '145.00 m', -26);
+  }
+}
+
+function draw2DSectionView(s) {
+  // Cross section A-A: span Y = -72.5..72.5, height Z = 0..35m (inverted Y canvas)
+  const sc = s * 1.15;
+
+  // Ground line & foundations
+  ctx.strokeStyle = '#475569';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(-95 * sc, 20 * sc);
+  ctx.lineTo(95 * sc, 20 * sc);
+  ctx.stroke();
+
+  // Foundations (Pieux Ø1200)
+  ctx.fillStyle = selectedId === 'foundations' ? 'rgba(244,63,94,0.45)' : 'rgba(100,116,139,0.4)';
+  ctx.strokeStyle = selectedId === 'foundations' ? '#fb7185' : '#64748b';
+  [-68, -62, 62, 68].forEach(px => {
+    ctx.fillRect((px - 1.2) * sc, 20 * sc, 2.4 * sc, 18 * sc);
+    ctx.strokeRect((px - 1.2) * sc, 20 * sc, 2.4 * sc, 18 * sc);
+  });
+
+  // Underpass gallery (-5.5m)
+  ctx.fillStyle = 'rgba(30,41,59,0.8)';
+  ctx.strokeStyle = '#64748b';
+  ctx.fillRect(-58 * sc, 20 * sc, 116 * sc, 7 * sc);
+  ctx.strokeRect(-58 * sc, 20 * sc, 116 * sc, 7 * sc);
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = '600 9px ui-monospace, monospace';
+  ctx.fillText('GALERIE SOUS-VOIES (-5.50 m) · CONCOURSE', -42 * sc, 24.5 * sc);
+
+  // Platforms & Tracks
+  if (layers.platforms) {
+    [-42, -21, 0, 21, 42].forEach((py, i) => {
+      ctx.fillStyle = selectedId === 'platforms' ? '#4ade80' : '#94a3b8';
+      ctx.fillRect((py - 4.2) * sc, 18.2 * sc, 8.4 * sc, 1.8 * sc);
+    });
+    [-52, -33.5, -29.5, -12.5, -8.5, 8.5, 12.5, 29.5, 33.5].forEach(ty => {
+      ctx.fillStyle = '#f59e0b';
+      ctx.fillRect((ty - 0.8) * sc, 19.2 * sc, 1.6 * sc, 0.8 * sc);
+    });
+  }
+
+  // Concrete piers
+  if (layers.concrete) {
+    ctx.fillStyle = selectedId === 'concrete' ? '#c4b5fd' : '#e2e8f0';
+    ctx.beginPath();
+    ctx.moveTo(-72 * sc, 20 * sc);
+    ctx.lineTo(-61 * sc, 20 * sc);
+    ctx.lineTo(-64 * sc, 6 * sc);
+    ctx.lineTo(-71 * sc, 9 * sc);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(72 * sc, 20 * sc);
+    ctx.lineTo(61 * sc, 20 * sc);
+    ctx.lineTo(64 * sc, 6 * sc);
+    ctx.lineTo(71 * sc, 9 * sc);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // Main Calatrava Arch (parabolic-catenary shell, H=35m)
+  if (layers.arches) {
+    ctx.strokeStyle = calcState.steelRatio > 1 ? '#ef4444' : (selectedId === 'arches' ? '#38bdf8' : '#f8fafc');
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    for (let i = 0; i <= 60; i++) {
+      const t = (i / 60) * 2 - 1;
+      const x = t * 72.5;
+      const z = 35 * (1 - t * t * 0.92) + 3.5 * Math.cos(t * Math.PI * 1.5);
+      const yCanvas = (20 - z) * sc;
+      if (i === 0) ctx.moveTo(x * sc, yCanvas);
+      else ctx.lineTo(x * sc, yCanvas);
+    }
+    ctx.stroke();
+
+    // Inner chord
+    ctx.lineWidth = 1.6;
+    ctx.strokeStyle = 'rgba(148,163,184,0.8)';
+    ctx.beginPath();
+    for (let i = 0; i <= 60; i++) {
+      const t = (i / 60) * 2 - 1;
+      const x = t * 70;
+      const z = 32.2 * (1 - t * t * 0.92) + 3.2 * Math.cos(t * Math.PI * 1.5);
+      const yCanvas = (20 - z) * sc;
+      if (i === 0) ctx.moveTo(x * sc, yCanvas);
+      else ctx.lineTo(x * sc, yCanvas);
+    }
+    ctx.stroke();
+  }
+
+  // Wind & Snow Load Vectors
+  if (layers.loads) {
+    // Snow arrows downward
+    ctx.strokeStyle = '#38bdf8';
+    ctx.fillStyle = '#38bdf8';
+    ctx.lineWidth = 1.4;
+    for (let x = -45; x <= 45; x += 15) {
+      const t = x / 72.5;
+      const z = 35 * (1 - t * t * 0.92) + 3.5 * Math.cos(t * Math.PI * 1.5);
+      const yTop = (20 - z) * sc;
+      const arrowLen = (8 + params.snow * 14);
+      ctx.beginPath();
+      ctx.moveTo(x * sc, yTop - arrowLen);
+      ctx.lineTo(x * sc, yTop - 3);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x * sc, yTop - 2);
+      ctx.lineTo(x * sc - 3, yTop - 8);
+      ctx.lineTo(x * sc + 3, yTop - 8);
+      ctx.fill();
+    }
+    ctx.font = '600 10px ui-monospace, monospace';
+    ctx.fillText(`NEIGE s_k=${params.snow.toFixed(2)} kN/m²`, -36 * sc, -24 * sc);
+
+    // Wind arrows horizontal
+    ctx.strokeStyle = '#f59e0b';
+    ctx.fillStyle = '#f59e0b';
+    for (let z = 6; z <= 28; z += 7) {
+      const y = (20 - z) * sc;
+      const len = 12 + (params.wind - 18) * 1.4;
+      ctx.beginPath();
+      ctx.moveTo(-88 * sc - len, y);
+      ctx.lineTo(-76 * sc, y);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(-75 * sc, y);
+      ctx.lineTo(-81 * sc, y - 3);
+      ctx.lineTo(-81 * sc, y + 3);
+      ctx.fill();
+    }
+    ctx.fillText(`VENT v_b0=${params.wind} m/s`, -108 * sc, -12 * sc);
+  }
+
+  if (layers.grid) {
+    drawDimLine(-72.5 * sc, 24 * sc, 72.5 * sc, 24 * sc, 'Portée libre 145.00 m', -28);
+    drawDimLine(76 * sc, 20 * sc, 76 * sc, -18.5 * sc, 'H = 35.00 m', -22);
+  }
+}
+
+function draw2DElevationView(s) {
+  const sc = s * 1.05;
+  ctx.strokeStyle = '#475569';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(-110 * sc, 20 * sc);
+  ctx.lineTo(110 * sc, 20 * sc);
+  ctx.stroke();
+
+  // Iconic wave silhouette along 160m
+  ctx.beginPath();
+  for (let i = 0; i <= 80; i++) {
+    const t = (i / 80) * 2 - 1;
+    const x = t * 80;
+    const hRoof = 35 * (0.42 + 0.58 * Math.cos(t * Math.PI * 0.5) ** 1.3);
+    const y = (20 - hRoof) * sc;
+    if (i === 0) ctx.moveTo(x * sc, y);
+    else ctx.lineTo(x * sc, y);
+  }
+  ctx.lineTo(80 * sc, 20 * sc);
+  ctx.lineTo(-80 * sc, 20 * sc);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(56,189,248,0.14)';
+  ctx.fill();
+  ctx.strokeStyle = '#f8fafc';
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+
+  // 39 ribs
+  if (layers.arches) {
+    ctx.strokeStyle = 'rgba(226,232,240,0.55)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 39; i++) {
+      const t = (i / 38) * 2 - 1;
+      const x = t * 78;
+      const hRoof = 35 * (0.42 + 0.58 * Math.cos(t * Math.PI * 0.5) ** 1.3);
+      ctx.beginPath();
+      ctx.moveTo(x * sc, 20 * sc);
+      ctx.lineTo(x * sc, (20 - hRoof) * sc);
+      ctx.stroke();
+    }
+  }
+
+  if (layers.grid) {
+    drawDimLine(-80 * sc, 22 * sc, 80 * sc, 22 * sc, 'Longueur voûte 160.00 m', -20);
+    drawDimLine(84 * sc, 20 * sc, 84 * sc, -15 * sc, 'Clé +35.00 m', -24);
+  }
+}
+
+// 2D Mouse interactions
+canvas2D.addEventListener('mousedown', e => {
+  drag2D = { active: true, sx: e.clientX, sy: e.clientY, cx: cam2D.x, cy: cam2D.y };
+});
+window.addEventListener('mousemove', e => {
+  if (drag2D.active) {
+    cam2D.x = drag2D.cx + (e.clientX - drag2D.sx);
+    cam2D.y = drag2D.cy + (e.clientY - drag2D.sy);
+    draw2D();
+  }
+});
+window.addEventListener('mouseup', () => { drag2D.active = false; });
+canvas2D.addEventListener('wheel', e => {
+  e.preventDefault();
+  const factor = e.deltaY < 0 ? 1.12 : 0.89;
+  cam2D.zoom = Math.max(0.8, Math.min(12, cam2D.zoom * factor));
+  draw2D();
+}, { passive: false });
+canvas2D.addEventListener('mousemove', e => {
+  const r = canvas2D.getBoundingClientRect();
+  const mx = ((e.clientX - r.left) - r.width / 2 - cam2D.x) / cam2D.zoom;
+  const my = ((e.clientY - r.top) - r.height / 2 - cam2D.y) / cam2D.zoom;
+  document.getElementById('footCoords').textContent = `X: ${mx.toFixed(2)} m | Y: ${(-my).toFixed(2)} m | Z: +0.00 m (TAW Liège)`;
+});
+
+// ============================================================
+// 3D THREE.JS BIM ENGINE (LIÈGE-GUILLEMINS)
+// ============================================================
+const container3D = document.getElementById('threeContainer');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0b111e);
+scene.fog = new THREE.FogExp2(0x0b111e, 0.0022);
+
+const camera = new THREE.PerspectiveCamera(44, 1, 0.5, 1000);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+container3D.appendChild(renderer.domElement);
+
+// Lights
+const hemi = new THREE.HemisphereLight(0xdbeafe, 0x1e293b, 0.85);
+scene.add(hemi);
+const dirLight = new THREE.DirectionalLight(0xffffff, 1.05);
+dirLight.position.set(110, 140, 95);
+scene.add(dirLight);
+const rimLight = new THREE.DirectionalLight(0x38bdf8, 0.45);
+rimLight.position.set(-120, 60, -90);
+scene.add(rimLight);
+
+// Ground Grid
+const gridHelper = new THREE.GridHelper(320, 32, 0x334155, 0x1e293b);
+gridHelper.position.y = -0.1;
+scene.add(gridHelper);
+
+// Groups by BIM Layer
+const grpArches = new THREE.Group();
+const grpGlass = new THREE.Group();
+const grpConcrete = new THREE.Group();
+const grpPlatforms = new THREE.Group();
+const grpTracks = new THREE.Group();
+const grpLoads = new THREE.Group();
+scene.add(grpArches, grpGlass, grpConcrete, grpPlatforms, grpTracks, grpLoads);
+
+// Shared Materials
+const matArch = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, metalness: 0.35, roughness: 0.35 });
+const matGlass = new THREE.MeshPhysicalMaterial({
+  color: 0x7dd3fc,
+  transparent: true,
+  opacity: 0.28,
+  roughness: 0.15,
+  metalness: 0.1,
+  side: THREE.DoubleSide
+});
+const matConcrete = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.75, metalness: 0.05 });
+const matPlatform = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.85 });
+const matRail = new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.7, roughness: 0.3 });
+
+function buildLiege3D() {
+  // 1. 39 Calatrava Steel Arches (spanning Z = -72..72, arrayed along X = -78..78)
+  const archCount = 39;
+  const ribPointsAll = [];
+
+  for (let i = 0; i < archCount; i++) {
+    const u = (i / (archCount - 1)) * 2 - 1; // -1..1 along length (160m)
+    const x = u * 78;
+    const heightScale = 0.45 + 0.55 * Math.pow(Math.cos(u * Math.PI * 0.5), 1.25);
+    const halfSpan = 72 - 12 * (u * u);
+
+    const pts = [];
+    const segs = 28;
+    for (let j = 0; j <= segs; j++) {
+      const v = (j / segs) * 2 - 1; // -1..1 across tracks
+      const z = v * halfSpan;
+      const y = (35 * heightScale) * (1 - v * v * 0.94) + 2.8 * heightScale * Math.cos(v * Math.PI * 1.5);
+      pts.push(new THREE.Vector3(x, Math.max(0.5, y), z));
+    }
+    ribPointsAll.push(pts);
+
+    const curve = new THREE.CatmullRomCurve3(pts);
+    const radius = (i % 6 === 0) ? 0.62 : 0.38;
+    const tubeGeo = new THREE.TubeGeometry(curve, 32, radius, 6, false);
+    const mesh = new THREE.Mesh(tubeGeo, matArch);
+    grpArches.add(mesh);
+  }
+
+  // Longitudinal purlins
+  for (let j = 2; j <= 26; j += 3) {
+    const pPts = [];
+    for (let i = 0; i < archCount; i += 2) {
+      pPts.push(ribPointsAll[i][j]);
+    }
+    const pCurve = new THREE.CatmullRomCurve3(pPts);
+    const pGeo = new THREE.TubeGeometry(pCurve, 38, 0.22, 5, false);
+    grpArches.add(new THREE.Mesh(pGeo, matArch));
+  }
+
+  // 2. Sculpted Glass Canopy Surface
+  const glassGeo = new THREE.BufferGeometry();
+  const vertices = [];
+  const indices = [];
+  const rows = archCount;
+  const cols = 29;
+  for (let i = 0; i < rows; i++) {
+    for (let j = 0; j < cols; j++) {
+      const p = ribPointsAll[i][j];
+      vertices.push(p.x, p.y + 0.35, p.z);
+    }
+  }
+  for (let i = 0; i < rows - 1; i++) {
+    for (let j = 0; j < cols - 1; j++) {
+      const a = i * cols + j;
+      const b = (i + 1) * cols + j;
+      const c = (i + 1) * cols + (j + 1);
+      const d = i * cols + (j + 1);
+      indices.push(a, b, d, b, c, d);
+    }
+  }
+  glassGeo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+  glassGeo.setIndex(indices);
+  glassGeo.computeVertexNormals();
+  grpGlass.add(new THREE.Mesh(glassGeo, matGlass));
+
+  // 3. White Architectural Concrete Abutments & Esplanade
+  const abutGeo = new THREE.BoxGeometry(166, 6.5, 11);
+  const abutN = new THREE.Mesh(abutGeo, matConcrete);
+  abutN.position.set(0, 3.25, -70);
+  const abutS = new THREE.Mesh(abutGeo, matConcrete);
+  abutS.position.set(0, 3.25, 70);
+  grpConcrete.add(abutN, abutS);
+
+  // Monumental white concrete ribs/buttresses
+  const pierGeo = new THREE.BoxGeometry(1.4, 9, 14);
+  for (let i = -72; i <= 72; i += 12) {
+    const p1 = new THREE.Mesh(pierGeo, matConcrete);
+    p1.position.set(i, 4.5, -72);
+    const p2 = new THREE.Mesh(pierGeo, matConcrete);
+    p2.position.set(i, 4.5, 72);
+    grpConcrete.add(p1, p2);
+  }
+
+  // 4. 5 Platforms
+  const platZs = [-42, -21, 0, 21, 42];
+  const platGeo = new THREE.BoxGeometry(230, 1.3, 8.4);
+  platZs.forEach(pz => {
+    const m = new THREE.Mesh(platGeo, matPlatform);
+    m.position.set(0, 0.65, pz);
+    grpPlatforms.add(m);
+  });
+
+  // 5. 9 Railway Tracks
+  const trackZs = [-52, -33.5, -29.5, -12.5, -8.5, 8.5, 12.5, 29.5, 33.5];
+  const railGeo = new THREE.BoxGeometry(270, 0.22, 0.16);
+  trackZs.forEach(tz => {
+    const r1 = new THREE.Mesh(railGeo, matRail);
+    r1.position.set(0, 0.15, tz - 0.72);
+    const r2 = new THREE.Mesh(railGeo, matRail);
+    r2.position.set(0, 0.15, tz + 0.72);
+    grpTracks.add(r1, r2);
+  });
+
+  // 6. Wind / Snow Load Arrows in 3D
+  for (let x = -50; x <= 50; x += 25) {
+    for (let z = -30; z <= 30; z += 30) {
+      const dir = new THREE.Vector3(0, -1, 0);
+      const origin = new THREE.Vector3(x, 44, z);
+      const arrow = new THREE.ArrowHelper(dir, origin, 9, 0x38bdf8, 2.2, 1.4);
+      grpLoads.add(arrow);
+    }
+  }
+}
+
+buildLiege3D();
+
+function getStressColor(ratio) {
+  if (ratio > 1.0) return 0xef4444;
+  if (ratio > 0.85) return 0xf97316;
+  if (ratio > 0.65) return 0xeab308;
+  return 0x22c55e;
+}
+
+function update3DMaterials() {
+  const wire = current3DMode === 'wire';
+  [matArch, matConcrete, matPlatform, matRail].forEach(m => { m.wireframe = wire; });
+  matGlass.wireframe = wire;
+
+  document.getElementById('heatmapLegend').classList.toggle('visible', current3DMode === 'stress');
+
+  if (current3DMode === 'arch') {
+    matArch.color.setHex(0xf1f5f9);
+    matGlass.color.setHex(0x7dd3fc);
+    matGlass.opacity = 0.28;
+    matConcrete.color.setHex(0xe2e8f0);
+    matPlatform.color.setHex(0x64748b);
+    matRail.color.setHex(0xf59e0b);
+  } else if (current3DMode === 'ifc') {
+    matArch.color.setHex(0x38bdf8);
+    matGlass.color.setHex(0x06b6d4);
+    matGlass.opacity = 0.35;
+    matConcrete.color.setHex(0xa78bfa);
+    matPlatform.color.setHex(0x22c55e);
+    matRail.color.setHex(0xf59e0b);
+  } else if (current3DMode === 'stress') {
+    matArch.color.setHex(getStressColor(calcState.steelRatio));
+    matGlass.color.setHex(getStressColor(calcState.deflectRatio));
+    matGlass.opacity = 0.22;
+    matConcrete.color.setHex(getStressColor(calcState.concRatio));
+    matPlatform.color.setHex(getStressColor(calcState.concRatio));
+    matRail.color.setHex(0x94a3b8);
+  } else if (current3DMode === 'wire') {
+    matArch.color.setHex(0x38bdf8);
+    matGlass.color.setHex(0x0ea5e9);
+    matGlass.opacity = 0.4;
+    matConcrete.color.setHex(0xc4b5fd);
+    matPlatform.color.setHex(0x4ade80);
+    matRail.color.setHex(0xfbbf24);
+  }
+  update3DHighlight();
+}
+
+function update3DHighlight() {
+  matArch.emissive.setHex(selectedId === 'arches' ? 0x0c4a6e : 0x000000);
+  matConcrete.emissive.setHex(selectedId === 'concrete' ? 0x3b0764 : 0x000000);
+  matPlatform.emissive.setHex(selectedId === 'platforms' ? 0x064e3b : 0x000000);
+  matRail.emissive.setHex(selectedId === 'tracks' ? 0x78350f : 0x000000);
+}
+
+// Lightweight Custom Orbit/Pan/Zoom Camera Controller
+const orbit = {
+  theta: 0.72,
+  phi: 1.05,
+  radius: 205,
+  target: new THREE.Vector3(0, 12, 0),
+  dragging: false,
+  panning: false,
+  lastX: 0,
+  lastY: 0
+};
+
+function updateCamera3D() {
+  orbit.phi = Math.max(0.15, Math.min(Math.PI / 2 - 0.04, orbit.phi));
+  orbit.radius = Math.max(45, Math.min(440, orbit.radius));
+  camera.position.set(
+    orbit.target.x + orbit.radius * Math.sin(orbit.phi) * Math.sin(orbit.theta),
+    orbit.target.y + orbit.radius * Math.cos(orbit.phi),
+    orbit.target.z + orbit.radius * Math.sin(orbit.phi) * Math.cos(orbit.theta)
+  );
+  camera.lookAt(orbit.target);
+}
+
+const dom3D = renderer.domElement;
+dom3D.addEventListener('contextmenu', e => e.preventDefault());
+dom3D.addEventListener('mousedown', e => {
+  orbit.dragging = true;
+  orbit.panning = (e.button === 2 || e.shiftKey);
+  orbit.lastX = e.clientX;
+  orbit.lastY = e.clientY;
+});
+window.addEventListener('mousemove', e => {
+  if (!orbit.dragging) return;
+  const dx = e.clientX - orbit.lastX;
+  const dy = e.clientY - orbit.lastY;
+  orbit.lastX = e.clientX;
+  orbit.lastY = e.clientY;
+  if (orbit.panning) {
+    const panScale = orbit.radius * 0.0014;
+    orbit.target.x -= dx * panScale * Math.cos(orbit.theta);
+    orbit.target.z += dx * panScale * Math.sin(orbit.theta);
+    orbit.target.y += dy * panScale;
+  } else {
+    orbit.theta -= dx * 0.0065;
+    orbit.phi -= dy * 0.0065;
+  }
+  updateCamera3D();
+});
+window.addEventListener('mouseup', () => { orbit.dragging = false; });
+dom3D.addEventListener('wheel', e => {
+  e.preventDefault();
+  orbit.radius *= (e.deltaY > 0 ? 1.08 : 0.92);
+  updateCamera3D();
+}, { passive: false });
+
+// Touch support for 3D
+dom3D.addEventListener('touchstart', e => {
+  if (e.touches.length === 1) {
+    orbit.dragging = true;
+    orbit.panning = false;
+    orbit.lastX = e.touches[0].clientX;
+    orbit.lastY = e.touches[0].clientY;
+  }
+}, { passive: true });
+dom3D.addEventListener('touchmove', e => {
+  if (orbit.dragging && e.touches.length === 1) {
+    const dx = e.touches[0].clientX - orbit.lastX;
+    const dy = e.touches[0].clientY - orbit.lastY;
+    orbit.lastX = e.touches[0].clientX;
+    orbit.lastY = e.touches[0].clientY;
+    orbit.theta -= dx * 0.008;
+    orbit.phi -= dy * 0.008;
+    updateCamera3D();
+  }
+}, { passive: true });
+dom3D.addEventListener('touchend', () => { orbit.dragging = false; });
+
+function resize3D() {
+  const w = container3D.clientWidth;
+  const h = container3D.clientHeight;
+  if (w <= 0 || h <= 0) return;
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w, h);
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  if (autoRotate && !orbit.dragging) {
+    orbit.theta += 0.004;
+    updateCamera3D();
+  }
+  renderer.render(scene, camera);
+}
+
+// ============================================================
+// EVENT WIRING
+// ============================================================
+function setViewMode(mode) {
+  currentView = mode;
+  document.getElementById('btnSplit').classList.toggle('active', mode === 'split');
+  document.getElementById('btn3D').classList.toggle('active', mode === '3d');
+  document.getElementById('btn2D').classList.toggle('active', mode === '2d');
+  document.getElementById('pane2D').classList.toggle('hidden', mode === '3d');
+  document.getElementById('pane3D').classList.toggle('hidden', mode === '2d');
+  setTimeout(() => { resize2D(); resize3D(); }, 20);
+}
+
+document.getElementById('btnSplit').onclick = () => setViewMode('split');
+document.getElementById('btn3D').onclick = () => setViewMode('3d');
+document.getElementById('btn2D').onclick = () => setViewMode('2d');
+
+document.querySelectorAll('[data-plan]').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('[data-plan]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    current2DMode = btn.dataset.plan;
+    cam2D = { x: 0, y: 0, zoom: current2DMode === 'top' ? 2.6 : 2.9 };
+    draw2D();
+  };
+});
+
+document.querySelectorAll('[data-mode]').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('[data-mode]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    current3DMode = btn.dataset.mode;
+    update3DMaterials();
+  };
+});
+
+document.getElementById('btn2DReset').onclick = () => {
+  cam2D = { x: 0, y: 0, zoom: 2.6 };
+  draw2D();
+};
+document.getElementById('btn3DReset').onclick = () => {
+  orbit.theta = 0.72; orbit.phi = 1.05; orbit.radius = 205;
+  orbit.target.set(0, 12, 0);
+  updateCamera3D();
+};
+document.getElementById('btn3DAuto').onclick = function() {
+  autoRotate = !autoRotate;
+  this.classList.toggle('active', autoRotate);
+};
+
+// Layer checkboxes
+const bindLayer = (id, key, group) => {
+  document.getElementById(id).onchange = e => {
+    layers[key] = e.target.checked;
+    if (group) group.visible = layers[key];
+    draw2D();
+  };
+};
+bindLayer('layArches', 'arches', grpArches);
+bindLayer('layGlass', 'glass', grpGlass);
+bindLayer('layConcrete', 'concrete', grpConcrete);
+document.getElementById('layPlatforms').onchange = e => {
+  layers.platforms = e.target.checked;
+  grpPlatforms.visible = layers.platforms;
+  grpTracks.visible = layers.platforms;
+  draw2D();
+};
+bindLayer('layGrid', 'grid', gridHelper);
+bindLayer('layLoads', 'loads', grpLoads);
+
+// Sliders
+document.getElementById('slWind').oninput = e => {
+  params.wind = Number(e.target.value);
+  document.getElementById('valWind').textContent = `${params.wind} m/s`;
+  recomputeEurocodes();
+};
+document.getElementById('slSnow').oninput = e => {
+  params.snow = Number(e.target.value);
+  document.getElementById('valSnow').textContent = `${params.snow.toFixed(2)} kN/m²`;
+  recomputeEurocodes();
+};
+document.getElementById('slLive').oninput = e => {
+  params.live = Number(e.target.value);
+  document.getElementById('valLive').textContent = `${params.live.toFixed(1)} kN/m²`;
+  recomputeEurocodes();
+};
+document.getElementById('slSeis').oninput = e => {
+  params.seis = Number(e.target.value);
+  document.getElementById('valSeis').textContent = `${params.seis.toFixed(2)} m/s²`;
+  recomputeEurocodes();
+};
+
+// Mobile panels
+document.getElementById('toggleLeft').onclick = () => {
+  document.getElementById('panelLeft').classList.toggle('open');
+  document.getElementById('panelRight').classList.remove('open');
+};
+document.getElementById('toggleRight').onclick = () => {
+  document.getElementById('panelRight').classList.toggle('open');
+  document.getElementById('panelLeft').classList.remove('open');
+};
+
+window.addEventListener('resize', () => { resize2D(); resize3D(); });
+
+// Init
+renderIfcTree();
+renderSelectedProps();
+recomputeEurocodes();
+updateCamera3D();
+resize2D();
+resize3D();
+animate();
+</script>
+</body>
+</html>
